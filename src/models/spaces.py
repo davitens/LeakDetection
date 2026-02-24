@@ -158,59 +158,45 @@ def get_optuna_space(trial, name, n_samples=None):
     elif name == "icl":
         return None
     elif name == "tabpfn":
-        # 1. Mappings to avoid Optuna List warnings
+        # 1. Mappings using TUPLES (to avoid Optuna persistent storage warnings)
         scaling_options = {
-            "none": ["none"],
-            "q_uni": ["quantile_uni_coarse"],
-            "q_norm": ["quantile_norm_coarse"],
-            "kdi_uni": ["kdi_uni"],
-            "kdi_0.3": ["kdi_alpha_0.3"],
-            "kdi_3.0": ["kdi_alpha_3.0"],
-            "safe_q": ["safepower", "quantile_uni"],
-            "none_q": ["none", "quantile_uni_coarse"],
-            "squash_q": ["squashing_scaler_default", "quantile_uni_coarse"],
-            "squash": ["squashing_scaler_default"],
+            "none": ("none",),
+            "q_uni": ("quantile_uni_coarse",),
+            "q_norm": ("quantile_norm_coarse",),
+            "kdi_uni": ("kdi_uni",),
+            "kdi_0.3": ("kdi_alpha_0.3",),
+            "kdi_3.0": ("kdi_alpha_3.0",),
+            "safe_q": ("safepower", "quantile_uni"),
+            "none_q": ("none", "quantile_uni_coarse"),
+            "squash_q": ("squashing_scaler_default", "quantile_uni_coarse"),
+            "squash": ("squashing_scaler_default",),
         }
 
         reg_y_options = {
-            "none": [None],
-            "none_safe": [None, "safepower"],
-            "safe": ["safepower"],
-            "kdi_0.3": ["kdi_alpha_0.3"],
-            "kdi_1.0": ["kdi_alpha_1.0"],
-            "kdi_3.0": ["kdi_alpha_3.0"],
-            "q_uni": ["quantile_uni"],
+            "none": (None,),
+            "none_safe": (None, "safepower"),
+            "safe": ("safepower",),
+            "kdi_0.3": ("kdi_alpha_0.3",),
+            "kdi_1.0": ("kdi_alpha_1.0",),
+            "kdi_3.0": ("kdi_alpha_3.0",),
+            "q_uni": ("quantile_uni",),
         }
 
-        # 2. Suggest Categoricals (Strings only for storage)
+        # 2. Suggest keys (Strings)
         scaling_key = trial.suggest_categorical("scaling_choice", list(scaling_options.keys()))
         reg_y_key = trial.suggest_categorical("reg_y_choice", list(reg_y_options.keys()))
+
+        # 3. Construct the configuration dictionary
         return {
             "softmax_temperature": trial.suggest_categorical("softmax_temperature", [0.25, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.25, 1.5]),
             "balance_probabilities": trial.suggest_categorical("balance_probabilities", [True, False]),            
             "inference_config/OUTLIER_REMOVAL_STD": trial.suggest_categorical("inference_config/OUTLIER_REMOVAL_STD", [3, 6, 12]),
             "inference_config/POLYNOMIAL_FEATURES": trial.suggest_categorical("inference_config/POLYNOMIAL_FEATURES", ["no", 25]),
-            "inference_config/REGRESSION_Y_PREPROCESS_TRANSFORMS": trial.suggest_categorical("inference_config/REGRESSION_Y_PREPROCESS_TRANSFORMS", [
-                [None],
-                [None, "safepower"],
-                ["safepower"],
-                ["kdi_alpha_0.3"],
-                ["kdi_alpha_1.0"],
-                ["kdi_alpha_3.0"],
-                ["quantile_uni"],
-            ]),
-            "preprocessing/scaling": trial.suggest_categorical("preprocessing/scaling", [
-                ["none"],
-                ["quantile_uni_coarse"],
-                ["quantile_norm_coarse"],
-                ["kdi_uni"],
-                ["kdi_alpha_0.3"],
-                ["kdi_alpha_3.0"],
-                ["safepower", "quantile_uni"],
-                ["none", "quantile_uni_coarse"],
-                ["squashing_scaler_default", "quantile_uni_coarse"],
-                ["squashing_scaler_default"],
-            ]),
+            
+            # Map the suggested keys to their tuple values
+            "inference_config/REGRESSION_Y_PREPROCESS_TRANSFORMS": reg_y_options[reg_y_key],
+            "preprocessing/scaling": scaling_options[scaling_key],
+            
             "preprocessing/categoricals": trial.suggest_categorical("preprocessing/categoricals", ["numeric", "onehot", "none"]),
             "preprocessing/append_original": trial.suggest_categorical("preprocessing/append_original", [True, False]),
             "preprocessing/global": trial.suggest_categorical("preprocessing/global", [None, "svd", "svd_quarter_components"]),
