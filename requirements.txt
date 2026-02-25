@@ -16,3 +16,4 @@ torchaudio
 
 
 category-encoders
+tabpfn-extensions[hpo]

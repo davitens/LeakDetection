@@ -174,9 +174,9 @@ if __name__ == "__main__":
     ]
 
     run_benchmark(
-        n_trials=1, 
+        n_trials=20, 
         model_names=models_to_run, 
-        resampling_methods=["RandomUnderSampler"]
+        resampling_methods=[None]
     )
     # Run the benchmark
     #run_benchmark(
