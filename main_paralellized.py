@@ -104,7 +104,7 @@ def run_benchmark_parallel(n_trials=5, model_names=None, resampling_methods=None
     n_workers = min(num_gpus, len(tasks))
     print(f"🔥 Spawning {n_workers} parallel workers...")
 
-    results = Parallel(n_jobs=n_workers, backend="multiprocessing")(
+    results = Parallel(n_jobs=n_workers, backend="multiprocessing", verbose=10)(
         delayed(run_single_experiment)(
             i % num_gpus, # This cycles tasks across GPUs: 0,1,2,3,0,1...
             task[0], 
