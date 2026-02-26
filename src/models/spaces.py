@@ -161,6 +161,7 @@ def get_optuna_space(trial, name, n_samples=None):
         # 1. Mappings using TUPLES (to avoid Optuna persistent storage warnings)
         scaling_options = {
             "none": ("none",),
+            "kdi_0.3_uni": ("kdi_alpha_0.3_uni",),  # Added your specific scaling here
             "q_uni": ("quantile_uni_coarse",),
             "q_norm": ("quantile_norm_coarse",),
             "kdi_uni": ("kdi_uni",),
