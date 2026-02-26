@@ -12,8 +12,7 @@ import time
 import torch
 from sklearn.model_selection import train_test_split
 from tabarena.benchmark.models.ag.tabm.tabm_model import TabMModel
-from tabarena.benchmark.models.ag.tabpfnv2_5.tabpfnv2_5_model import RealTabPFNv25Model
-
+1
 
 print("Loading data...")
 X, y, cat_features, num_features = load_and_clean_data()
@@ -38,8 +37,6 @@ hyperparameters = {
 }
 model_1 = RealTabPFNv25Model(hyperparameters=hyperparameters)
 model_1.fit(X=X_train_numeric, y=y_train, num_gpus = 1)
-
-
 y_pred_1 = model_1.predict(X_test)
 end_time_1 = time.time()
 elapsed_time_1 = end_time_1 - start_time_1
