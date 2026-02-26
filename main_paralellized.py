@@ -7,7 +7,8 @@ import pandas as pd
 import torch
 import optuna
 import multiprocessing as mp
-from sklearn.metrics import log_loss
+
+# Ensure your local project imports still work
 from src.data_loader import load_and_clean_data
 from src.preprocessing import preprocess_data
 from src.objective import objective
@@ -19,22 +20,29 @@ def gpu_worker(gpu_id, study_name, storage_url, n_trials, name, X, y, resampling
     """
     A standalone process that runs on a specific GPU.
     """
-    # 1. Isolate this process to one specific GPU
+    # 1. Enable logging inside the child process so you see the 'evolution'
+    import optuna
+    optuna.logging.set_verbosity(optuna.logging.INFO)
+    
+    # 2. Isolate this process to one specific GPU
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
     
-    # 2. Load the existing study from the database
+    # 3. Load the existing study
     study = optuna.load_study(study_name=study_name, storage=storage_url)
     
-    # 3. Run the optimization
-    # Note: objective() must be compatible with 'cuda' (not hardcoded to 'cuda:0')
+    print(f"\n>>> [GPU {gpu_id}] Starting {n_trials} trials...")
+    
+    # 4. Run optimization with Progress Bar
+    # Note: TQDM progress bars might stack/overlap in parallel, but will show progress
     study.optimize(
         lambda trial: objective(trial, name, X, y, resampling), 
-        n_trials=n_trials
+        n_trials=n_trials,
+        show_progress_bar=True
     )
     
-    print(f"GPU {gpu_id} finished {n_trials} trials.")
+    print(f"\n<<< [GPU {gpu_id}] Finished all trials.")
 
-def run_benchmark(n_trials=20, model_names=None, resampling_methods=None):
+def run_benchmark(n_trials=40, model_names=None, resampling_methods=None):
     if model_names is None:
         model_names = ["tabpfn"]
     if resampling_methods is None:
@@ -46,29 +54,28 @@ def run_benchmark(n_trials=20, model_names=None, resampling_methods=None):
     os.makedirs("results/oof_predictions", exist_ok=True)
     
     n_gpus = torch.cuda.device_count()
-    print(f"Detected {n_gpus} GPUs. Splitting {n_trials} trials across them.")
-
     db_path = "optuna_parallel.db"
     storage_url = f"sqlite:///{db_path}"
 
+    print(f"Detected {n_gpus} GPUs. Storage: {storage_url}")
+    print(f"To view LIVE evolution, run this in a new terminal:")
+    print(f"    optuna-dashboard {storage_url}")
+
     for resampling in resampling_methods:
         for name in model_names:
-            print(f"\nSTARTING PARALLEL RUN: {name} | {resampling}")
-            
-            # --- Initialize Study in DB ---
             study_name = f"{name}_{resampling}"
             
-            # Clear old study if it exists to start fresh
+            # Initialize/Clear Study
             try:
                 optuna.delete_study(study_name=study_name, storage=storage_url)
             except:
                 pass
                 
-            study = optuna.create_study(
+            optuna.create_study(
                 study_name=study_name,
                 storage=storage_url,
                 direction="minimize",
-                sampler=optuna.samplers.TPESampler(multivariate=True),
+                sampler=optuna.samplers.TPESampler(multivariate=True, constant_liar=True),
                 pruner=optuna.pruners.MedianPruner()
             )
 
@@ -87,28 +94,21 @@ def run_benchmark(n_trials=20, model_names=None, resampling_methods=None):
             for p in processes:
                 p.join()
 
-            # --- Post-Optimization (Main Process) ---
-            # Reload the study to get results from all workers
+            # --- Post-Optimization ---
             study = optuna.load_study(study_name=study_name, storage=storage_url)
-            print(f"Best Score across all GPUs: {study.best_value:.4f}")
+            print(f"\n🏆 FINAL RESULTS FOR {name} | {resampling}")
+            print(f"Best Score: {study.best_value:.4f}")
 
-            # Generate OOFs using the best params
+            # Generate OOFs using best params
             best_oof = get_best_model_oofs(name, study.best_params, X, y, resampling)
             
-            # Save results (using your original logic)
             individual_df = pd.DataFrame({"prediction": best_oof, "actual": y}, index=X.index)
             resampling_label = str(resampling) if resampling else "None"
             individual_df.to_csv(f"results/oof_predictions/{name}_{resampling_label}_preds.csv")
             
-            print(f"Cleanup for {name} complete.")
             gc.collect()
 
 if __name__ == "__main__":
-    # ESSENTIAL for CUDA multiprocessing
+    # ESSENTIAL for CUDA + Multiprocessing
     mp.set_start_method('spawn', force=True)
-    
-    run_benchmark(
-        n_trials=40, # Example: 20 trials per GPU if you have 2 GPUs
-        model_names=["tabpfn"],
-        resampling_methods=[None]
-    )
+    run_benchmark(n_trials=40)

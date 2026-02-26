@@ -4,6 +4,7 @@ scipy
 
 scikit-learn==1.5.2
 optuna
+optuna-dashboard
 imbalanced-learn
 
 xgboost
