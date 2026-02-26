@@ -111,4 +111,4 @@ def run_benchmark(n_trials=40, model_names=None, resampling_methods=None):
 if __name__ == "__main__":
     # ESSENTIAL for CUDA + Multiprocessing
     mp.set_start_method('spawn', force=True)
-    run_benchmark(n_trials=40)
+    run_benchmark(model_names = ["tabpfn"],n_trials=40)
