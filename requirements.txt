@@ -1,20 +1,13 @@
 numpy
 pandas
 scipy
-
 scikit-learn==1.5.2
 optuna
 optuna-dashboard
 imbalanced-learn
-
 xgboost
 lightgbm
 catboost
-
-torch
-torchvision
-torchaudio
-
 
 category-encoders
 tabpfn-extensions[hpo]

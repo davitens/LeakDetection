@@ -201,4 +201,5 @@ def get_optuna_space(trial, name, n_samples=None):
             "preprocessing/categoricals": trial.suggest_categorical("preprocessing/categoricals", ["numeric", "onehot", "none"]),
             "preprocessing/append_original": trial.suggest_categorical("preprocessing/append_original", [True, False]),
             "preprocessing/global": trial.suggest_categorical("preprocessing/global", [None, "svd", "svd_quarter_components"]),
+            "memory_saving_mode":True
         }

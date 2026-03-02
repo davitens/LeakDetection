@@ -36,7 +36,8 @@ hyperparameters = {
     "preprocessing/categoricals": "onehot",
     "inference_config/POLYNOMIAL_FEATURES": "all",
     # Wrap this value in a list:
-    "preprocessing/scaling": ["kdi_alpha_0.3_uni"] 
+    "preprocessing/scaling": ["kdi_alpha_0.3_uni"],
+    "memory_saving_mode":True
 }
 model_1 = RealTabPFNv25Model(hyperparameters=hyperparameters)
 model_1.fit(X=X_train_numeric, y=y_train, num_gpus = 1)
