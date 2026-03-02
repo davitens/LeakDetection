@@ -7,108 +7,104 @@ import pandas as pd
 import torch
 import optuna
 import multiprocessing as mp
-
-# Ensure your local project imports still work
+from sklearn.metrics import log_loss
 from src.data_loader import load_and_clean_data
 from src.preprocessing import preprocess_data
 from src.objective import objective
 from src.utils import get_best_model_oofs
 
-warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", message=".*force_all_finite.*", category=FutureWarning)
 
-def gpu_worker(gpu_id, study_name, storage_url, n_trials, name, X, y, resampling):
+def run_worker(gpu_id, model_names, resampling_methods, n_trials):
     """
-    A standalone process that runs on a specific GPU.
+    Each worker calls this function. It assigns itself to a specific GPU
+    and contributes to the shared Optuna study in the DB.
     """
-    # 1. Enable logging inside the child process so you see the 'evolution'
-    import optuna
-    optuna.logging.set_verbosity(optuna.logging.INFO)
-    
-    # 2. Isolate this process to one specific GPU
+    # 1. Assign GPU
     os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
-    
-    # 3. Load the existing study
-    study = optuna.load_study(study_name=study_name, storage=storage_url)
-    
-    print(f"\n>>> [GPU {gpu_id}] Starting {n_trials} trials...")
-    
-    # 4. Run optimization with Progress Bar
-    # Note: TQDM progress bars might stack/overlap in parallel, but will show progress
-    study.optimize(
-        lambda trial: objective(trial, name, X, y, resampling), 
-        n_trials=n_trials,
-        show_progress_bar=True
-    )
-    
-    print(f"\n<<< [GPU {gpu_id}] Finished all trials.")
+    device = f"cuda:{gpu_id}" if torch.cuda.is_available() else "cpu"
+    print(f"Worker started on {device}")
 
-def run_benchmark(n_trials=40, model_names=None, resampling_methods=None):
-    if model_names is None:
-        model_names = ["tabpfn"]
-    if resampling_methods is None:
-        resampling_methods = [None]
-
-    # --- Setup ---
+    # 2. Load Data (Each process needs its own copy in memory)
     X, y, cat_features, num_features = load_and_clean_data()
     X = preprocess_data(X, cat_features, num_features)
-    os.makedirs("results/oof_predictions", exist_ok=True)
     
-    n_gpus = torch.cuda.device_count()
-    db_path = "optuna_parallel.db"
-    storage_url = f"sqlite:///{db_path}"
-
-    print(f"Detected {n_gpus} GPUs. Storage: {storage_url}")
-    print(f"To view LIVE evolution, run this in a new terminal:")
-    print(f"    optuna-dashboard {storage_url}")
+    db_path = "sqlite:///benchmarks.db"
 
     for resampling in resampling_methods:
         for name in model_names:
-            study_name = f"{name}_{resampling}"
-            
-            # Initialize/Clear Study
-            try:
-                optuna.delete_study(study_name=study_name, storage=storage_url)
-            except:
-                pass
-                
-            optuna.create_study(
-                study_name=study_name,
-                storage=storage_url,
+            # 3. Connect to Shared Study
+            # All workers point to the same study_name and storage
+            study = optuna.create_study(
+                study_name=f"{name}_{resampling}",
+                storage=db_path,
+                load_if_exists=True,
                 direction="minimize",
-                sampler=optuna.samplers.TPESampler(multivariate=True, constant_liar=True),
+                sampler=optuna.samplers.TPESampler(multivariate=True),
                 pruner=optuna.pruners.MedianPruner()
             )
-
-            # --- Launch Parallel Processes ---
-            trials_per_gpu = n_trials // n_gpus
-            processes = []
             
-            for i in range(n_gpus):
-                p = mp.Process(
-                    target=gpu_worker,
-                    args=(i, study_name, storage_url, trials_per_gpu, name, X, y, resampling)
-                )
-                p.start()
-                processes.append(p)
-
-            for p in processes:
-                p.join()
-
-            # --- Post-Optimization ---
-            study = optuna.load_study(study_name=study_name, storage=storage_url)
-            print(f"\n🏆 FINAL RESULTS FOR {name} | {resampling}")
-            print(f"Best Score: {study.best_value:.4f}")
-
-            # Generate OOFs using best params
-            best_oof = get_best_model_oofs(name, study.best_params, X, y, resampling)
+            # 4. Optimize
+            # Workers will cooperatively finish n_trials
+            study.optimize(
+                lambda trial: objective(trial, name, X, y, resampling), 
+                n_trials=n_trials,
+                n_jobs=1 
+            ) 
             
-            individual_df = pd.DataFrame({"prediction": best_oof, "actual": y}, index=X.index)
-            resampling_label = str(resampling) if resampling else "None"
-            individual_df.to_csv(f"results/oof_predictions/{name}_{resampling_label}_preds.csv")
-            
+            # Cleanup for next model
+            torch.cuda.empty_cache()
             gc.collect()
 
+def finalize_results(model_names, resampling_methods):
+    """
+    After all workers finish, one process runs this to compile CSVs.
+    """
+    print("\nAll workers finished. Finalizing results...")
+    db_path = "sqlite:///benchmarks.db"
+    X, y, cat_features, num_features = load_and_clean_data()
+    X = preprocess_data(X, cat_features, num_features)
+    
+    all_results = []
+    
+    for resampling in resampling_methods:
+        for name in model_names:
+            study = optuna.load_study(study_name=f"{name}_{resampling}", storage=db_path)
+            
+            print(f"Processing best results for {name}...")
+            best_oof = get_best_model_oofs(name, study.best_params, X, y, resampling)
+            
+            # Save individual OOF
+            resampling_label = str(resampling) if resampling else "None"
+            pd.DataFrame({"pred": best_oof, "actual": y}).to_csv(f"results/{name}_{resampling_label}_preds.csv")
+            
+            all_results.append({
+                "model": name,
+                "resampling": resampling_label,
+                "best_score": study.best_value,
+                "best_params": study.best_params
+            })
+
+    pd.DataFrame(all_results).to_csv("results/final_summary.csv", index=False)
+
 if __name__ == "__main__":
-    # ESSENTIAL for CUDA + Multiprocessing
-    mp.set_start_method('spawn', force=True)
-    run_benchmark(model_names = ["tabpfn"],n_trials=40)
+    # CONFIGURATION
+    NUM_GPUS = torch.cuda.device_count() # Automatically detects available GPUs
+    TRIALS_PER_GPU = 5 
+    MODELS = ["mlp", "nca", "tabm"]
+    RESAMPLING = [None]
+
+    os.makedirs("results/oof_predictions", exist_ok=True)
+
+    # Launching processes
+    processes = []
+    for i in range(NUM_GPUS):
+        p = mp.Process(target=run_worker, args=(i, MODELS, RESAMPLING, TRIALS_PER_GPU))
+        p.start()
+        processes.append(p)
+
+    for p in processes:
+        p.join()
+
+    # Consolidate results
+    finalize_results(MODELS, RESAMPLING)
