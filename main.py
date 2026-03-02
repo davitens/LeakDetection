@@ -157,24 +157,24 @@ if __name__ == "__main__":
     mp.set_start_method('spawn', force=True)
     models_to_run = [
 #        # Standard Models
-#        "logistic", 
-#        "rf", 
-#        "et", 
-#        "xgb", 
-#        "lgbm", 
-#        "catboost", 
-#        "knn", 
-#        "dummy",
-#        "rusb",
-#        "mlp", 
-#        "nca", 
-#        "tabm", 
-#        "icl", 
+        "logistic", 
+        "rf", 
+        "et", 
+        "xgb", 
+        "lgbm", 
+        "catboost", 
+        "knn", 
+        "dummy",
+        "rusb",
+        "mlp", 
+        "nca", 
+        "tabm", 
+        "icl", 
         "tabpfn"
     ]
 
     run_benchmark(
-        n_trials=20, 
+        n_trials=1, 
         model_names=models_to_run, 
         resampling_methods=[None]
     )
