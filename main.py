@@ -47,8 +47,9 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None):
     print(f"Starting pipeline for models: {model_names}")
 
     # --- Main Loop ---
-    for resampling in resampling_methods:
-        for name in model_names:
+    for name in model_names:
+        for resampling in resampling_methods:
+
             torch.cuda.empty_cache()
             torch.cuda.synchronize()
             gc.collect()
@@ -62,12 +63,15 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None):
             current_n_trials = 1 if name in ["tabdpt", "icl"] else n_trials
             
             # Setup Optuna Study
-            sampler = optuna.samplers.TPESampler(multivariate=True)
+            sampler = optuna.samplers.TPESampler(multivariate=True, warn_independent_sampling=False)
             pruner = optuna.pruners.MedianPruner()
             study = optuna.create_study(
                 direction="minimize", 
                 sampler=sampler, 
-                pruner=pruner
+                pruner=pruner,
+                study_name=f"{name}_{resampling}",
+                storage="sqlite:///results/optuna_trials/optuna_benchmark.db", # Persists data to disk
+                load_if_exists=True
             )
             
             # Run Optimization
@@ -84,8 +88,8 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None):
             print(f"Generating OOF predictions for best {name}...")
             # Generate OOF predictions
             print(f"Generating OOF predictions for best {name}...")
+            """
             best_oof = get_best_model_oofs(name, study.best_params, X, y, resampling)
-
             # --- VERIFICATION STEP ---
             # Clip predictions to match the objective function's behavior
             y_prob_verified = np.clip(best_oof, 1e-7, 1 - 1e-7)
@@ -121,11 +125,11 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None):
                 "duration_seconds": round(iteration_duration, 2),
                 "duration_minutes": round(iteration_duration / 60, 2)
             })
-
+            """
             # --- GPU & Memory Cleanup ---
             del study
-            del best_oof
-            del individual_df
+            #del best_oof
+            #del individual_df
             gc.collect()
             
             if torch.cuda.is_available():
@@ -135,22 +139,20 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None):
             print(f"Memory cleared for {name}. Moving to next configuration...")
 
     # --- Final Exports ---
-    oof_master_df["real"] = y
-    oof_master_df.to_csv("results/oof_predictions/all_model_oofs.csv")
-
-    summary_df = pd.DataFrame(all_results)
-    summary_df.to_csv("results/model_run_summary.csv", index=False)
-    summary_df.to_csv("benchmark_results.csv", index=False)
+    #oof_master_df["real"] = y
+    #oof_master_df.to_csv("results/oof_predictions/all_model_oofs.csv")
+    #summary_df = pd.DataFrame(all_results)
+    #summary_df.to_csv("results/model_run_summary.csv", index=False)
+    #summary_df.to_csv("benchmark_results.csv", index=False)
 
     total_duration = time.time() - total_start_time
     print("\n" + "!"*20 + " FINAL RESULTS " + "!"*20)
-    print(summary_df)
     print("\n" + "="*50)
     print(f"PIPELINE COMPLETE | Total Time: {total_duration/60:.2f} minutes")
     print("="*50)
 
 
-    return summary_df
+    #return summary_df
 
 if __name__ == "__main__":
     # Define the models list
@@ -193,7 +195,7 @@ import pandas as pd
 
 # Load the file
 df = pd.read_parquet("results/optuna_trials/all_trials_results.parquet")
-
+df.iloc[0:50]
 # Access the best trial's data directly
 best_row = df.loc[df['mean_log_loss'].idxmin()]
 best_preds = best_row['predictions'] # This is already a list/array!
