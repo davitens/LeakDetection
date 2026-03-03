@@ -170,13 +170,13 @@ if __name__ == "__main__":
         "nca", 
         "tabm", 
         "icl", 
-        "tabpfn"
+    #    "tabpfn"
     ]
 
     run_benchmark(
-        n_trials=1, 
+        n_trials=25, 
         model_names=models_to_run, 
-        resampling_methods=[None]
+        resampling_methods=[None, "SMOTE", "ADASYN", "RandomUnderSampler"]
     )
     # Run the benchmark
     #run_benchmark(
@@ -186,3 +186,19 @@ if __name__ == "__main__":
     #)
 
 torch.cuda.empty_cache()
+
+
+
+import pandas as pd
+
+# Load the file
+df = pd.read_parquet("results/optuna_trials/all_trials_results.parquet")
+
+# Access the best trial's data directly
+best_row = df.loc[df['mean_log_loss'].idxmin()]
+best_preds = best_row['predictions'] # This is already a list/array!
+best_params = best_row['hyperparameters'] # This is already a dict!
+
+print(f"Loaded trial {best_row['trial_number']} with {len(best_preds)} predictions.")
+
+len(df["predictions"][0])
