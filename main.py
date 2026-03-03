@@ -176,7 +176,7 @@ if __name__ == "__main__":
     ]
 
     run_benchmark(
-        n_trials=25, 
+        n_trials=50, 
         model_names=models_to_run, 
         resampling_methods=[None, "SMOTE", "ADASYN", "RandomUnderSampler"]
     )
