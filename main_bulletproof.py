@@ -86,7 +86,7 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightb
                         load_if_exists=True
                     )
                     
-                    # 2. Run Optimization - Parallel execution enabled
+                    # 2. Run Optimization
                     study.optimize(
                         lambda trial: objective(trial, name, X, y, resampling, k=k), 
                         n_trials=current_n_trials,
@@ -119,7 +119,7 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightb
                             df_to_append.to_parquet(master_results_path, engine='pyarrow', index=False)
                         else:
                             df_old = pd.read_parquet(master_results_path)
-                            #pd.concat([df_old, df_to_append], ignore_index=True).to_parquet(master_results_path, engine='pyarrow', index=False)
+                            pd.concat([df_old, df_to_append], ignore_index=True).to_parquet(master_results_path, engine='pyarrow', index=False)
                     else:
                         print(f"⚠️ No completed trials for {name} ({resampling_label}). Skipping Parquet export.")
 
@@ -168,8 +168,8 @@ if __name__ == "__main__":
     models_to_run = [
 #       "logistic",
 #        "rf",
-#       "et",
-#        "xgb",
+#        "et",
+        "xgb",
 #        "lgbm",
 #        "catboost",
 #        "knn",
@@ -182,7 +182,7 @@ if __name__ == "__main__":
     ]
 
     run_benchmark(
-        n_trials=50, 
+        n_trials=5, 
         model_names=models_to_run, 
         resampling_methods=["SMOTE", "ADASYN"] #[None, "SMOTE", "ADASYN", "RandomUnderSampler"] 
     )
