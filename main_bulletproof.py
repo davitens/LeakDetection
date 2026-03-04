@@ -119,7 +119,7 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightb
                             df_to_append.to_parquet(master_results_path, engine='pyarrow', index=False)
                         else:
                             df_old = pd.read_parquet(master_results_path)
-                            pd.concat([df_old, df_to_append], ignore_index=True).to_parquet(master_results_path, engine='pyarrow', index=False)
+                            #pd.concat([df_old, df_to_append], ignore_index=True).to_parquet(master_results_path, engine='pyarrow', index=False)
                     else:
                         print(f"⚠️ No completed trials for {name} ({resampling_label}). Skipping Parquet export.")
 
@@ -166,9 +166,9 @@ if __name__ == "__main__":
     mp.set_start_method('spawn', force=True)
     
     models_to_run = [
-        "logistic",
+#       "logistic",
 #        "rf",
-#        "et",
+#       "et",
 #        "xgb",
 #        "lgbm",
 #        "catboost",
