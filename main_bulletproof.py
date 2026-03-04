@@ -24,7 +24,7 @@ warnings.filterwarnings(
     module="sklearn"
 )
 
-def run_benchmark(n_trials=1, model_names=None, resampling_methods=None):
+def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightboors = [3,7,9]):
     """
     Runs optimization and tracks success/failure for each model configuration.
     """
@@ -43,7 +43,9 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None):
     os.makedirs("results/oof_predictions", exist_ok=True)
     os.makedirs("results/optuna_trials", exist_ok=True)
     
-    # Track status of every run
+    # Path for the master results file
+    master_results_path = "results/optuna_trials/all_trials_results.parquet"
+    
     run_history = []
     total_start_time = time.time()
 
@@ -52,83 +54,104 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None):
     # --- Main Loop ---
     for name in model_names:
         for resampling in resampling_methods:
-            resampling_label = str(resampling) if resampling else "None"
             
-            print("\n" + "="*60)
-            print(f"RUNNING: {name.upper()} | RESAMPLING: {resampling_label}")
-            print("="*60)
-            
-            iteration_start = time.time()
-            status = "SUCCESS"
-            error_details = None
-            best_score = None
+            if resampling in ["SMOTE", "ADASYN"]:
+                k_list = neightboors
+            else:
+                k_list = [None] 
 
-            try:
-                # 1. Setup Optuna
-                current_n_trials = 1 if name in ["tabdpt", "icl"] else n_trials
-                sampler = optuna.samplers.TPESampler(multivariate=True)
-                study = optuna.create_study(
-                    direction="minimize", 
-                    sampler=sampler,
-                    study_name=f"{name}_{resampling_label}",
-                    storage="sqlite:///results/optuna_trials/optuna_benchmark.db",
-                    load_if_exists=True
-                )
+            for k in k_list:
+                resampling_label = str(resampling) if resampling else "None"
+                if k is not None:
+                    resampling_label += f"_k{k}"
                 
-                # 2. Run Optimization
-                study.optimize(
-                    lambda trial: objective(trial, name, X, y, resampling), 
-                    n_trials=current_n_trials,
-                    timeout=1800
-                )
-                best_score = study.best_value
+                print("\n" + "="*60)
+                print(f"RUNNING: {name.upper()} | RESAMPLING: {resampling_label}")
+                print("="*60)
+                
+                iteration_start = time.time()
+                status = "SUCCESS"
+                error_details = None
+                best_score = None
 
-                # 3. Generate OOFs
-                print(f"Generating OOF predictions for {name}...")
-                best_oof = get_best_model_oofs(name, study.best_params, X, y, resampling)
-                
-                # 4. Save individual predictions
-                individual_df = pd.DataFrame({
-                    "prediction": best_oof,
-                    "actual": y 
-                }, index=X.index)
-                file_path = f"results/oof_predictions/{name}_{resampling_label}_preds.csv"
-                individual_df.to_csv(file_path, index=True)
+                try:
+                    # 1. Setup Optuna
+                    current_n_trials = 1 if name in ["tabdpt", "icl"] else n_trials
+                    sampler = optuna.samplers.TPESampler(multivariate=True)
+                    study = optuna.create_study(
+                        direction="minimize", 
+                        sampler=sampler,
+                        study_name=f"{name}_{resampling_label}",
+                        storage="sqlite:///results/optuna_trials/optuna_benchmark.db",
+                        load_if_exists=True
+                    )
+                    
+                    # 2. Run Optimization - Parallel execution enabled
+                    study.optimize(
+                        lambda trial: objective(trial, name, X, y, resampling, k=k), 
+                        n_trials=current_n_trials,
+                        timeout=1800,
+                        n_jobs=-1
+                    )
+                    best_score = study.best_value
 
-            except Exception as e:
-                # --- Error Capture ---
-                status = "FAILED"
-                error_details = traceback.format_exc()
-                print(f"❌ CRITICAL FAILURE: {name} | {resampling_label}")
-                print(error_details)
-            
-            finally:
-                # --- Cleanup & Logging ---
-                duration = time.time() - iteration_start
-                
-                # Log the result of this specific combination
-                result_entry = {
-                    "model": name,
-                    "resampling": resampling_label,
-                    "status": status,
-                    "best_log_loss": best_score,
-                    "duration_min": round(duration / 60, 2),
-                    "error_msg": error_details.split('\n')[-2] if error_details else None
-                }
-                run_history.append(result_entry)
-                
-                # Update the master CSV after EVERY run
-                pd.DataFrame(run_history).to_csv("results/pipeline_status.csv", index=False)
+                # --- REFINED: POST-OPTIMIZATION DATA EXPORT ---
+                    # 1. Extract trials with the 'state' attribute
+                    trials_df = study.trials_dataframe(attrs=('number', 'value', 'user_attrs', 'state'))
+                    
+                    # 2. FILTER: Only keep 'COMPLETE' trials (excludes PRUNED and FAIL)
+                    complete_trials = trials_df[trials_df['state'].astype(str) == 'COMPLETE']
+                    print(f"DEBUG: Found {len(trials_df)} total trials. {len(complete_trials)} are COMPLETE.")
+                    
+                    if not complete_trials.empty:
+                        df_to_append = pd.DataFrame({
+                            "trial_number": complete_trials["number"],
+                            "model": name,
+                            "hyperparameters": complete_trials["user_attrs_space"],
+                            "resampling": complete_trials["user_attrs_resampling"],
+                            "predictions": complete_trials["user_attrs_predictions"],
+                            "mean_log_loss": complete_trials["value"],
+                            "k": complete_trials["user_attrs_k"]
+                        })
 
-                # Force memory release
-                if 'study' in locals(): del study
-                if 'best_oof' in locals(): del best_oof
-                gc.collect()
-                if torch.cuda.is_available():
-                    torch.cuda.empty_cache()
-                    torch.cuda.synchronize()
+                        # 3. Append to master Parquet (Sequential write is safe here)
+                        if not os.path.exists(master_results_path):
+                            df_to_append.to_parquet(master_results_path, engine='pyarrow', index=False)
+                        else:
+                            df_old = pd.read_parquet(master_results_path)
+                            pd.concat([df_old, df_to_append], ignore_index=True).to_parquet(master_results_path, engine='pyarrow', index=False)
+                    else:
+                        print(f"⚠️ No completed trials for {name} ({resampling_label}). Skipping Parquet export.")
+
+                except Exception as e:
+                    status = "FAILED"
+                    error_details = traceback.format_exc()
+                    print(f"❌ CRITICAL FAILURE: {name} | {resampling_label}")
+                    print(error_details)
                 
-                print(f"Finished {name} - Status: {status}")
+                finally:
+                    duration = time.time() - iteration_start
+                    result_entry = {
+                        "model": name,
+                        "resampling": resampling_label,
+                        "k_neighbors": k,
+                        "status": status,
+                        "best_log_loss": best_score,
+                        "duration_min": round(duration / 60, 2),
+                        "error_msg": error_details.split('\n')[-2] if error_details else None
+                    }
+                    run_history.append(result_entry)
+                    pd.DataFrame(run_history).to_csv("results/pipeline_status.csv", index=False)
+
+                    # Cleanup
+                    if 'study' in locals(): del study
+                    if 'best_oof' in locals(): del best_oof
+                    gc.collect()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                        torch.cuda.synchronize()
+                    
+                    print(f"Finished {name} - Status: {status}")
 
     # --- Final Summary ---
     total_duration = time.time() - total_start_time
@@ -143,23 +166,23 @@ if __name__ == "__main__":
     mp.set_start_method('spawn', force=True)
     
     models_to_run = [
-        #"logistic",
-        #"rf",
-        #"et",
-        #"xgb",
-        #"lgbm",
-        #"catboost",
-        #"knn",
-        #"dummy",
-        #"rusb",
-        #"mlp",
-        #"nca",
-        #"tabm",
-        #"icl"
+        "logistic",
+#        "rf",
+#        "et",
+#        "xgb",
+#        "lgbm",
+#        "catboost",
+#        "knn",
+#        "dummy",
+#        "rusb",
+#        "mlp",
+#        "nca",
+#        "tabm",
+#        "icl"
     ]
 
     run_benchmark(
         n_trials=50, 
         model_names=models_to_run, 
-        resampling_methods=[None, "SMOTE", "ADASYN", "RandomUnderSampler"]
+        resampling_methods=["SMOTE", "ADASYN"] #[None, "SMOTE", "ADASYN", "RandomUnderSampler"] 
     )

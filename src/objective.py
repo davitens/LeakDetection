@@ -9,7 +9,7 @@ from imblearn.under_sampling import RandomUnderSampler
 
 from src.models.ModelFactory import ModelFactory 
 
-def objective(trial, model_name, X, y, resampling=None):
+def objective(trial, model_name, X, y, resampling=None, k=5):
     # 1. Setup Hyperparameters and Model
     space = ModelFactory.get_space(trial, model_name)
     model = ModelFactory.get_model(model_name, params=space)
@@ -23,9 +23,9 @@ def objective(trial, model_name, X, y, resampling=None):
     # 2. Resampling Setup
     sampler = None
     if resampling == "SMOTE":
-        sampler = SMOTE(random_state=33)
+        sampler = SMOTE(random_state=33, k_neighbors=k)
     elif resampling == "ADASYN":
-        sampler = ADASYN(random_state=33)
+        sampler = ADASYN(random_state=33, n_neighbors=k)
     elif resampling == "RandomUnderSampler":
         sampler = RandomUnderSampler(random_state=33)
 
@@ -63,32 +63,35 @@ def objective(trial, model_name, X, y, resampling=None):
         if trial.should_prune():
             raise optuna.exceptions.TrialPruned()
 
-    # 4. Save Trial Data to Parquet
-    save_dir = "results/optuna_trials"
-    save_path = os.path.join(save_dir, "all_trials_results.parquet")
-    os.makedirs(save_dir, exist_ok=True)
-
-    # Prepare data for this trial
-    # NOTE: Parquet handles dicts and lists directly!
-    trial_data = {
-        "trial_number": [trial.number],
-        "model": [model_name],
-        "hyperparameters": [space],        # Saved as a dictionary object
-        "resampling": [str(resampling)],
-        "predictions": [oof_predictions],   # Saved as an array/list object
-        "mean_log_loss": [np.mean(scores)]
-    }
-    df_new = pd.DataFrame(trial_data)
-
-    # Append to existing Parquet or create new
-    if not os.path.exists(save_path):
-        df_new.to_parquet(save_path, engine='pyarrow', index=False)
-    else:
-        # We read and concat to ensure the schema remains consistent
-        df_old = pd.read_parquet(save_path, engine='pyarrow')
-        df_combined = pd.concat([df_old, df_new], ignore_index=True)
-        df_combined.to_parquet(save_path, engine='pyarrow', index=False)
+    # --- 4. Store Data in Optuna Internal Storage (NOT Parquet) ---
+    # This keeps your format but avoids the concurrent write crash.
+    # We save these as "User Attributes" which we will export later.
+    trial.set_user_attr("space", space)
+    trial.set_user_attr("resampling", str(resampling))
+    trial.set_user_attr("predictions", oof_predictions.tolist()) # List for Parquet compatibility later
+    trial.set_user_attr("k", k)
 
     return np.mean(scores)
 
+"""
+import optuna
 
+# 1. Path to your current database
+db_url = "sqlite:///results/optuna_trials/optuna_benchmark.db"
+
+# 2. Get all study summaries
+study_summaries = optuna.get_all_study_summaries(storage=db_url)
+
+for summary in study_summaries:
+    # Check if the study name starts with "logistic"
+    if summary.study_name.startswith("logistic"):
+        print(f"🗑️ Deleting study: {summary.study_name}")
+        
+        # 3. Permanently remove the study from the database
+        optuna.delete_study(
+            study_name=summary.study_name, 
+            storage=db_url
+        )
+
+print("✅ Cleanup complete. All 'logistic' studies have been removed.")
+"""
