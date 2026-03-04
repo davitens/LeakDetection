@@ -29,3 +29,12 @@ git config --file /workspace/.gitconfig credential.helper 'store --file /workspa
 
 # ***REMOVED-LEAKED-TOKEN***
 # ***REMOVED-LEAKED-TOKEN***
+
+
+
+# LFS stuff
+# 1. Ensure LFS is initialized in the environment
+git lfs install
+
+# 2. Pull the actual 400MB+ files from GitHub's LFS storage
+git lfs pull
