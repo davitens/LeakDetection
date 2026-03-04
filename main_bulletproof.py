@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import gc
 import warnings
@@ -24,7 +25,7 @@ warnings.filterwarnings(
     module="sklearn"
 )
 
-def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightboors = [3,7,9]):
+def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightboors=[3, 7, 9], run_name="all_trials_results"):
     """
     Runs optimization and tracks success/failure for each model configuration.
     """
@@ -43,8 +44,9 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightb
     os.makedirs("results/oof_predictions", exist_ok=True)
     os.makedirs("results/optuna_trials", exist_ok=True)
     
-    # Path for the master results file
-    master_results_path = "results/optuna_trials/all_trials_results.parquet"
+    # DYNAMIC PATH: Uses the run_name passed from the command line
+    master_results_path = f"results/optuna_trials/{run_name}.parquet"
+    print(f"Results will be saved to: {master_results_path}")
     
     run_history = []
     total_start_time = time.time()
@@ -82,7 +84,7 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightb
                         direction="minimize", 
                         sampler=sampler,
                         study_name=f"{name}_{resampling_label}",
-                        storage="sqlite:///results/optuna_trials/optuna_benchmark.db",
+                        storage="sqlite:///results/optuna_trials/run_name_optuna_registry.db",
                         load_if_exists=True
                     )
                     
@@ -91,15 +93,14 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightb
                         lambda trial: objective(trial, name, X, y, resampling, k=k), 
                         n_trials=current_n_trials,
                         timeout=1800,
-                        n_jobs=-1
+                        n_jobs=1
                     )
                     best_score = study.best_value
 
-                # --- REFINED: POST-OPTIMIZATION DATA EXPORT ---
-                    # 1. Extract trials with the 'state' attribute
+                    # --- POST-OPTIMIZATION DATA EXPORT ---
                     trials_df = study.trials_dataframe(attrs=('number', 'value', 'user_attrs', 'state'))
                     
-                    # 2. FILTER: Only keep 'COMPLETE' trials (excludes PRUNED and FAIL)
+                    # FILTER: Only keep 'COMPLETE' trials
                     complete_trials = trials_df[trials_df['state'].astype(str) == 'COMPLETE']
                     print(f"DEBUG: Found {len(trials_df)} total trials. {len(complete_trials)} are COMPLETE.")
                     
@@ -114,7 +115,7 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightb
                             "k": complete_trials["user_attrs_k"]
                         })
 
-                        # 3. Append to master Parquet (Sequential write is safe here)
+                        # Append to dynamic master Parquet
                         if not os.path.exists(master_results_path):
                             df_to_append.to_parquet(master_results_path, engine='pyarrow', index=False)
                         else:
@@ -141,11 +142,12 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightb
                         "error_msg": error_details.split('\n')[-2] if error_details else None
                     }
                     run_history.append(result_entry)
-                    pd.DataFrame(run_history).to_csv("results/pipeline_status.csv", index=False)
+                    
+                    # Save a separate status file named after the run
+                    pd.DataFrame(run_history).to_csv(f"results/status_{run_name}.csv", index=False)
 
                     # Cleanup
                     if 'study' in locals(): del study
-                    if 'best_oof' in locals(): del best_oof
                     gc.collect()
                     if torch.cuda.is_available():
                         torch.cuda.empty_cache()
@@ -165,12 +167,20 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightb
 if __name__ == "__main__":
     mp.set_start_method('spawn', force=True)
     
+    # --- HANDLE TERMINAL ARGUMENTS ---
+    # Default name if nothing is provided
+    custom_name = "all_trials_results"
+    
+    if len(sys.argv) > 1:
+        # Take the first argument after main.py
+        custom_name = sys.argv[1]
+
     models_to_run = [
-#       "logistic",
-#        "rf",
-#        "et",
+       "logistic",
+        "rf",
+        "et",
         "xgb",
-#        "lgbm",
+        "lgbm",
 #        "catboost",
 #        "knn",
 #        "dummy",
@@ -182,7 +192,8 @@ if __name__ == "__main__":
     ]
 
     run_benchmark(
-        n_trials=5, 
+        n_trials=50, 
         model_names=models_to_run, 
-        resampling_methods=["SMOTE", "ADASYN"] #[None, "SMOTE", "ADASYN", "RandomUnderSampler"] 
+        resampling_methods=["SMOTE", "ADASYN"],
+        run_name=custom_name # Pass the command line name here
     )

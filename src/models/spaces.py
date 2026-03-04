@@ -205,7 +205,7 @@ def get_optuna_space(trial, name, n_samples=None):
         }
     elif name == "et":
         return {
-            "max_features": trial.suggest_categorical("max_features", ["sqrt", 0.5, 0.75, 1.0]),
+            "max_features": trial.suggest_categorical("max_features", [0.5, 0.75, 1.0]),
             "min_samples_split": trial.suggest_int("min_samples_split", 2, 32, log=True),
             "bootstrap": False,
             "n_estimators": 50,

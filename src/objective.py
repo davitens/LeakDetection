@@ -95,4 +95,3 @@ for summary in study_summaries:
 
 print("✅ Cleanup complete. All 'logistic' studies have been removed.")
 """
-

@@ -1,1 +1,3 @@
 results/oof_predictions
+results/optuna_trials/*.parquet
+results/optuna_trials/*.db
