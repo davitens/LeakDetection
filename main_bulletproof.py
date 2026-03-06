@@ -93,7 +93,7 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightb
                         lambda trial: objective(trial, name, X, y, resampling, k=k), 
                         n_trials=current_n_trials,
                         timeout=1800,
-                        n_jobs=1
+                        n_jobs=-1
                     )
                     best_score = study.best_value
 
@@ -176,15 +176,15 @@ if __name__ == "__main__":
         custom_name = sys.argv[1]
 
     models_to_run = [
-       "logistic",
-        "rf",
-        "et",
-        "xgb",
-        "lgbm",
+#       "logistic",
+#        "rf",
+#        "et",
+#        "xgb",
+#        "lgbm",
 #        "catboost",
-#        "knn",
-#        "dummy",
-#        "rusb",
+        "knn",
+        "dummy",
+        "rusb",
 #        "mlp",
 #        "nca",
 #        "tabm",
