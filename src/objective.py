@@ -73,25 +73,4 @@ def objective(trial, model_name, X, y, resampling=None, k=5):
 
     return np.mean(scores)
 
-"""
-import optuna
 
-# 1. Path to your current database
-db_url = "sqlite:///results/optuna_trials/optuna_benchmark.db"
-
-# 2. Get all study summaries
-study_summaries = optuna.get_all_study_summaries(storage=db_url)
-
-for summary in study_summaries:
-    # Check if the study name starts with "logistic"
-    if summary.study_name.startswith("logistic"):
-        print(f"🗑️ Deleting study: {summary.study_name}")
-        
-        # 3. Permanently remove the study from the database
-        optuna.delete_study(
-            study_name=summary.study_name, 
-            storage=db_url
-        )
-
-print("✅ Cleanup complete. All 'logistic' studies have been removed.")
-"""
