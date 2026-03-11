@@ -14,7 +14,7 @@ def objective(trial, model_name, X, y, resampling=None, k=5):
     space = ModelFactory.get_space(trial, model_name)
     model = ModelFactory.get_model(model_name, params=space)
     
-    cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=33)
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=33)
     
     # Initialize Out-of-Fold (OOF) predictions array
     oof_predictions = np.zeros(len(X))
