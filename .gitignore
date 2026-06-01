@@ -2,3 +2,4 @@ results/oof_predictions
 results/optuna_trials/*.db
 results/optuna_trials/*.parquet
 results/prediction_set.parquet
+manuscript/gis_figure/*
