@@ -7,13 +7,16 @@ from sklearn.metrics import log_loss, roc_auc_score
 
 df = pd.read_parquet("results/optuna_trials/all_trials_results.parquet")
 X, y, cat_features, num_features = load_and_clean_data()
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
 
 
+best_index = df['mean_log_loss'].idxmin()
+best_predictions = df.loc[best_index, 'predictions']
 
 
+predictions = pd.DataFrame(columns=['fid', 'predictions'])
+predictions["fid"] = y.index
+predictions["predictions"] = best_predictions
+predictions.to_csv("manuscript/gis_figure/best_predictions.csv", index=False)
 
 
 # 1. Prepare the data: Get the best (min) log loss per model/resampling pair
