@@ -25,5 +25,7 @@ manuscript/**
 !manuscript/**/
 !manuscript/**/*.png
 !manuscript/**/leaks.jpeg
-!manuscript/**/figure*.pdf
-!manuscript/graphical_abstract/**/*.pdf
+!manuscript/figure_aucc_auxiliar.pdf
+!manuscript/figure_1.pdf
+!manuscript/figure_2.pdf
+!manuscript/figure_leaks.pdf
