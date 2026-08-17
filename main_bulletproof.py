@@ -38,8 +38,7 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightb
     print("Loading data...")
     X, y, cat_features, num_features = load_and_clean_data()
     
-    print("Preprocessing data...")
-    X = preprocess_data(X, cat_features, num_features)
+    print("Preprocessing will be fit inside each CV fold...")
     
     os.makedirs("results/oof_predictions", exist_ok=True)
     os.makedirs("results/optuna_trials", exist_ok=True)
@@ -78,19 +77,20 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightb
 
                 try:
                     # 1. Setup Optuna
-                    current_n_trials = 1 if name in ["tabdpt", "icl"] else n_trials
+                    current_n_trials = 1 if name in ["tabpfn", "icl"] else n_trials
                     sampler = optuna.samplers.TPESampler(multivariate=True)
                     study = optuna.create_study(
                         direction="minimize", 
                         sampler=sampler,
                         study_name=f"{name}_{resampling_label}",
-                        storage="sqlite:///results/optuna_trials/run_name_optuna_registry.db",
+                        storage=f"sqlite:///results/optuna_trials/{run_name}_optuna_registry.db",
                         load_if_exists=True
                     )
+                    existing_trial_numbers = {t.number for t in study.trials}
                     
                     # 2. Run Optimization
                     study.optimize(
-                        lambda trial: objective(trial, name, X, y, resampling, k=k), 
+                        lambda trial: objective(trial, name, X, y, resampling, k=k, cat_features=cat_features, num_features=num_features), 
                         n_trials=current_n_trials,
                         timeout=1800,
                         n_jobs=-1
@@ -102,7 +102,8 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightb
                     
                     # FILTER: Only keep 'COMPLETE' trials
                     complete_trials = trials_df[trials_df['state'].astype(str) == 'COMPLETE']
-                    print(f"DEBUG: Found {len(trials_df)} total trials. {len(complete_trials)} are COMPLETE.")
+                    complete_trials = complete_trials[~complete_trials["number"].isin(existing_trial_numbers)]
+                    print(f"DEBUG: Found {len(trials_df)} total trials. {len(complete_trials)} new trials are COMPLETE.")
                     
                     if not complete_trials.empty:
                         df_to_append = pd.DataFrame({

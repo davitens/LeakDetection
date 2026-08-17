@@ -3,7 +3,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder, StandardScaler
 from sklearn.compose import ColumnTransformer
 
-def preprocess_data(X, cat_features, num_features):
+def make_preprocessor(cat_features, num_features):
     num_transformer = Pipeline(steps=[
         ('imputer', SimpleImputer(strategy='median')),
         ('scaler', StandardScaler())
@@ -23,5 +23,9 @@ def preprocess_data(X, cat_features, num_features):
     )
     
     preprocessor.set_output(transform="pandas")
-    
-    return preprocessor.fit_transform(X)
+
+    return preprocessor
+
+
+def preprocess_data(X, cat_features, num_features):
+    return make_preprocessor(cat_features, num_features).fit_transform(X)

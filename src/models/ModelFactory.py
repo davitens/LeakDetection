@@ -12,7 +12,6 @@ from tabarena.benchmark.models.ag.realmlp.realmlp_model import RealMLPModel
 from tabarena.benchmark.models.ag.tabm.tabm_model import TabMModel
 from tabarena.benchmark.models.ag.tabicl.tabicl_model import TabICLModel
 from tabarena.benchmark.models.ag.tabpfnv2_5.tabpfnv2_5_model import RealTabPFNv25Model
-from tabarena.benchmark.models.ag.tabpfnv2_5.tabpfnv2_5_model import RealTabPFNv25Model
 
 
 from tabarena.benchmark.models.ag.modernnca.modernnca_model import ModernNCAModel

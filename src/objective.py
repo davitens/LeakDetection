@@ -8,11 +8,11 @@ from imblearn.over_sampling import SMOTE, ADASYN
 from imblearn.under_sampling import RandomUnderSampler
 
 from src.models.ModelFactory import ModelFactory 
+from src.preprocessing import make_preprocessor
 
-def objective(trial, model_name, X, y, resampling=None, k=5):
+def objective(trial, model_name, X, y, resampling=None, k=5, cat_features=None, num_features=None):
     # 1. Setup Hyperparameters and Model
     space = ModelFactory.get_space(trial, model_name)
-    model = ModelFactory.get_model(model_name, params=space)
     
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=33)
     
@@ -34,12 +34,18 @@ def objective(trial, model_name, X, y, resampling=None, k=5):
         X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
         y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
 
+        if cat_features is not None and num_features is not None:
+            preprocessor = make_preprocessor(cat_features, num_features)
+            X_train = preprocessor.fit_transform(X_train)
+            X_val = preprocessor.transform(X_val)
+
         if sampler is not None:
             X_res, y_res = sampler.fit_resample(X_train, y_train)
         else:
             X_res, y_res = X_train, y_train
-            
+             
         # Model Training (Agnostic)
+        model = ModelFactory.get_model(model_name, params=space)
         if model_name in ["mlp", "nca", "tabm", "icl", "tabpfn"]:
             model.fit(X=X_res, y=y_res, num_gpus=1, num_cpus=6)
         else:
@@ -72,5 +78,3 @@ def objective(trial, model_name, X, y, resampling=None, k=5):
     trial.set_user_attr("k", k)
 
     return np.mean(scores)
-
-

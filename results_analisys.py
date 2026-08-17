@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import seaborn as sns
 from src.data_loader import load_and_clean_data
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import log_loss, roc_auc_score
@@ -29,10 +30,19 @@ baseline_order = (
     .sort_values('mean_log_loss')['model']
     .tolist()
 )
+if not baseline_order:
+    baseline_order = (
+        plot_df.groupby('model')['mean_log_loss']
+        .min()
+        .sort_values()
+        .index
+        .tolist()
+    )
 
 # 3. Setup the 4-panel vertical figure
-resampling_methods = ['None', 'SMOTE', 'ADASYN', 'RandomUnderSampler']
-fig, axes = plt.subplots(nrows=4, ncols=1, figsize=(12, 16), sharex=True, sharey=True)
+resampling_methods = [method for method in ['None', 'SMOTE', 'ADASYN', 'RandomUnderSampler'] if method in set(plot_df['resampling'])]
+fig, axes = plt.subplots(nrows=len(resampling_methods), ncols=1, figsize=(12, 4 * len(resampling_methods)), sharex=True, sharey=True)
+axes = np.atleast_1d(axes)
 
 # Define a color palette for consistency across bars
 palette = sns.color_palette("viridis", n_colors=len(baseline_order))
@@ -73,13 +83,8 @@ plt.ylim(0, 1)
 # plt.savefig('resampling_comparison_stacked.png', dpi=300, bbox_inches='tight')
 plt.show()
 
-
-import numpy as np
-import pandas as pd
-
-# Add the column 'k' based on the resampling condition
-# We use np.where: value is 5 if resampling is SMOTE or ADASYN, else NaN (or another default)
-df['k'] = np.where(df['resampling'].isin(['SMOTE', 'ADASYN']), 5, np.nan)
+if 'k' not in df.columns:
+    df['k'] = np.nan
 
 # Save the DataFrame to a parquet file
 # Note: This requires the 'pyarrow' or 'fastparquet' library to be installed.

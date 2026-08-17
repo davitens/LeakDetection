@@ -1,5 +1,29 @@
-results/oof_predictions
-results/optuna_trials/*.db
-results/optuna_trials/*.parquet
-results/prediction_set.parquet
-manuscript/gis_figure/**
+# Runtime/generated Python files
+__pycache__/
+*.py[cod]
+
+# Data, legacy scripts, and benchmark outputs
+data/
+old/
+oof_predictions/
+results/
+
+# Root scratch/generated files
+np
+pd
+plt
+texput.log
+results_with_metrics.csv
+methodology_cost_curve.pdf
+changes.tex
+
+# Manuscript text, LaTeX artifacts, responses, and submission material
+manuscript/**
+
+# Keep only manuscript figure assets visible to Git.
+!manuscript/
+!manuscript/**/
+!manuscript/**/*.png
+!manuscript/**/leaks.jpeg
+!manuscript/**/figure*.pdf
+!manuscript/graphical_abstract/**/*.pdf
