@@ -1,6 +1,7 @@
 # Runtime/generated Python files
 __pycache__/
 *.py[cod]
+AGENTS.md
 
 # Data, legacy scripts, and benchmark outputs
 data/
@@ -29,3 +30,4 @@ manuscript/**
 !manuscript/figure_1.pdf
 !manuscript/figure_2.pdf
 !manuscript/figure_leaks.pdf
+manuscript/graphical_abstract/**
