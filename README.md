@@ -101,7 +101,6 @@ python -m pytest tests/ -q
 
 ## Repository Notes
 
-- `data/`, `results/`, `old/`, Python caches and manuscript artifacts are gitignored.
-- The manuscript figure PDFs are kept trackable: `figure_aucc_auxiliar.pdf`, `figure_1.pdf`, `figure_2.pdf`, `figure_leaks.pdf`. The manuscript LaTeX sources are not distributed; figure fonts are not included.
+- `data/`, `results/`, `manuscript/`, `old/`, Python caches and LaTeX artifacts are gitignored. `manuscript/` also holds the generated tables and figures, so `results_analisys.py` writes there untracked.
 - Known limits: the tabarena models receive a fixed `num_cpus=6` budget per fit, and `main_bulletproof.py` runs Optuna trials with `n_jobs=-1`, so CPU-bound fits can oversubscribe the machine.
 - `src/workers.py`, `src/log.py` and `src/utils.py::get_best_model_oofs` are currently unreferenced.

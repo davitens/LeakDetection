@@ -21,16 +21,5 @@ results_with_metrics.csv
 methodology_cost_curve.pdf
 changes.tex
 
-# Manuscript text, LaTeX artifacts, responses, and submission material
-manuscript/**
-
-# Keep only manuscript figure assets visible to Git.
-!manuscript/
-!manuscript/**/
-!manuscript/**/*.png
-!manuscript/**/leaks.jpeg
-!manuscript/figure_aucc_auxiliar.pdf
-!manuscript/figure_1.pdf
-!manuscript/figure_2.pdf
-!manuscript/figure_leaks.pdf
-manuscript/graphical_abstract/**
+# Manuscript sources, figure assets and generated tables/figures
+manuscript/
