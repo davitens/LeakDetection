@@ -12,7 +12,29 @@ Abert-Fernández, D., Monclús, H., Fetai, B., & Kozelj, D. (2026). *AI-driven r
 
 ## Data
 
-The dataset is **not distributed with this repository**: `data/modified.csv` is a Git-LFS pointer and `data/` is not tracked. It is the Ljubljana water supply network table described in `data/attributes.txt` (~52.7k pipe segments, ~1.2k leak records, 2.4% positive).
+The dataset is **not distributed with this repository**. It is the Ljubljana water supply network table supplied by the Ljubljana Water Supply System (~52.7k pipe segments, ~1.2k leak records, 2.4% positive), and it is expected at `data/` locally, which is gitignored.
+
+Columns:
+
+| Column | Meaning |
+|---|---|
+| `DW_fid` | pipe id, used as the row index |
+| `DW_leto_izgra` | year of installation |
+| `DW_DIM_tl` | outside diameter of pipe |
+| `DW_atr1` | pipe material code |
+| `DW_atr4` | distribution network type code |
+| `DE_Pipe_Age` | pipe age |
+| `DW_Leak_No` | number of leaks, empty when the pipe never leaked — the label source |
+| `DW_Leak_After_Inst` | age of the pipe at its first leak |
+| `RO_atr1` | road category code |
+| `RR_atr2` | rail category code |
+| `EE_atr2` | cable voltage code |
+| `EK_atr1` | underground cable installation code |
+| `ZP_atr4` | gas pipe dimension range code |
+| `DH_atr2` | district heat dimension range code |
+| `WW_atr1` | wastewater network type code |
+
+`DW_Leak_After_Inst` and `DE_Pipe_Age` are dropped before modelling: the first is read off the leak record, the second duplicates `DW_leto_izgra`. The material legend is in `src/data_loader.py` (`MATERIAL_LABELS`); the remaining `*_atr*` columns are nominal ids consumed as codes.
 
 Two filenames appear in the project's history, and they are not interchangeable:
 
@@ -100,6 +122,8 @@ python -m pytest tests/ -q
 `tests/test_pipeline.py` builds a small synthetic table with the real schema, so it runs without the dataset. It covers the loader's label and feature handling, the preprocessor, the scoring rules (including the closed-form AUCC of a constant predictor), device selection for the learners, and the analysis outputs end to end.
 
 ## Repository Notes
+
+This repository carries the replication code only: the dataset, the benchmark outputs, the manuscript and its figure assets are not tracked and not present in history. Obtain `data/modified.csv` separately from the data owners.
 
 - `data/`, `results/`, `manuscript/`, `old/`, Python caches and LaTeX artifacts are gitignored. `manuscript/` also holds the generated tables and figures, so `results_analisys.py` writes there untracked.
 - Known limits: the tabarena models receive a fixed `num_cpus=6` budget per fit, and `main_bulletproof.py` runs Optuna trials with `n_jobs=-1`, so CPU-bound fits can oversubscribe the machine.
