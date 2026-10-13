@@ -7,7 +7,7 @@ from sklearn.metrics import log_loss
 from imblearn.over_sampling import SMOTE, ADASYN
 from imblearn.under_sampling import RandomUnderSampler
 
-from src.models.ModelFactory import ModelFactory 
+from src.models.ModelFactory import TABARENA_FIT_KWARGS, ModelFactory, tabarena_fit_kwargs 
 from src.preprocessing import make_preprocessor
 
 def objective(trial, model_name, X, y, resampling=None, k=5, cat_features=None, num_features=None):
@@ -46,8 +46,8 @@ def objective(trial, model_name, X, y, resampling=None, k=5, cat_features=None, 
              
         # Model Training (Agnostic)
         model = ModelFactory.get_model(model_name, params=space)
-        if model_name in ["mlp", "nca", "tabm", "icl", "tabpfn"]:
-            model.fit(X=X_res, y=y_res, num_gpus=1, num_cpus=6)
+        if model_name in TABARENA_FIT_KWARGS:
+            model.fit(X=X_res, y=y_res, **tabarena_fit_kwargs())
         else:
             model.fit(X=X_res, y=y_res)
 

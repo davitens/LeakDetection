@@ -1,5 +1,8 @@
 # Runtime/generated Python files
 __pycache__/
+
+# CatBoost training logs written next to the working directory
+catboost_info/
 *.py[cod]
 AGENTS.md
 

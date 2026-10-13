@@ -1,21 +1,24 @@
 import os
-import sys
 import time
 import gc
 import warnings
 import traceback
-import numpy as np
+import argparse
 import pandas as pd
 import torch
 import optuna
-from sklearn.metrics import log_loss
 import multiprocessing as mp
 
 # Assuming these are your local modules
-from src.data_loader import load_and_clean_data
-from src.preprocessing import preprocess_data
+from src.data_loader import DEFAULT_DATA_PATH, load_and_clean_data
 from src.objective import objective
-from src.utils import get_best_model_oofs
+
+#: Resampling configurations benchmarked in the paper: baseline, the two
+#: synthetic oversamplers and random undersampling.
+RESAMPLING_METHODS = [None, "SMOTE", "ADASYN", "RandomUnderSampler"]
+
+#: Neighbour counts SMOTE/ADASYN are evaluated with (manuscript, Architecture).
+K_NEIGHBORS = [3, 5, 7, 9]
 
 # Suppress specific sklearn warnings
 warnings.filterwarnings(
@@ -25,18 +28,18 @@ warnings.filterwarnings(
     module="sklearn"
 )
 
-def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightboors=[3, 7, 9], run_name="all_trials_results"):
+def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightboors=K_NEIGHBORS, run_name="all_trials_results", data_path=DEFAULT_DATA_PATH):
     """
     Runs optimization and tracks success/failure for each model configuration.
     """
     if model_names is None:
         model_names = ["tabm"]
     if resampling_methods is None:
-        resampling_methods = [None, "SMOTE", "ADASYN", "RandomUnderSampler"]
+        resampling_methods = RESAMPLING_METHODS
 
     # --- Initialization ---
-    print("Loading data...")
-    X, y, cat_features, num_features = load_and_clean_data()
+    print(f"Loading data from {data_path}...")
+    X, y, cat_features, num_features = load_and_clean_data(data_path)
     
     print("Preprocessing will be fit inside each CV fold...")
     
@@ -167,15 +170,17 @@ def run_benchmark(n_trials=1, model_names=None, resampling_methods=None, neightb
 
 if __name__ == "__main__":
     mp.set_start_method('spawn', force=True)
-    
-    # --- HANDLE TERMINAL ARGUMENTS ---
-    # Default name if nothing is provided
-    custom_name = "all_trials_results"
-    
-    if len(sys.argv) > 1:
-        # Take the first argument after main.py
-        custom_name = sys.argv[1]
 
+    # --- HANDLE TERMINAL ARGUMENTS ---
+    parser = argparse.ArgumentParser(description="Leak benchmark runner")
+    parser.add_argument("run_name", nargs="?", default="all_trials_results",
+                        help="name used for the results/*.parquet and status CSVs")
+    parser.add_argument("--data", default=DEFAULT_DATA_PATH,
+                        help="dataset CSV (the manuscript analysis used data/modified_real.csv)")
+    args = parser.parse_args()
+
+    # Paper configuration: 12 models x 4 resamplings x k in [3, 5, 7, 9].
+    # The list below is a smoke subset; uncomment the rest for a full run.
     models_to_run = [
 #       "logistic",
 #        "rf",
@@ -195,6 +200,7 @@ if __name__ == "__main__":
     run_benchmark(
         n_trials=50, 
         model_names=models_to_run, 
-        resampling_methods=["SMOTE", "ADASYN"],
-        run_name=custom_name # Pass the command line name here
+        resampling_methods=RESAMPLING_METHODS,
+        run_name=args.run_name,
+        data_path=args.data,
     )

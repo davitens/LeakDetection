@@ -1,10 +1,18 @@
+import torch
 from optuna.trial import Trial
+
+#: Train on a GPU when one is visible, otherwise use a CPU-compatible space.
+#: The paper's experiments ran on an RTX 5090; the same code must still run on
+#: a machine without one (XGBoost, LightGBM and CatBoost all hard-fail on a
+#: CUDA device that does not exist).
+USE_GPU = torch.cuda.is_available()
+
 
 def get_optuna_space(trial, name, n_samples=None):
     if name == "catboost":
         return {
-            "task_type": "GPU",
-            "devices": "0",  # Specify the GPU index
+            "task_type": "GPU" if USE_GPU else "CPU",
+            **({"devices": "0"} if USE_GPU else {}),
             "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.1, log=True),
             "bootstrap_type": "Bernoulli",
             "subsample": trial.suggest_float("subsample", 0.7, 1.0),
@@ -19,7 +27,7 @@ def get_optuna_space(trial, name, n_samples=None):
     
     elif name == "lgbm":
         return {
-            "device": "gpu",
+            "device": "gpu" if USE_GPU else "cpu",
             "gpu_platform_id": 0,
             "gpu_device_id": 0,
             "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.1, log=True),
@@ -34,7 +42,7 @@ def get_optuna_space(trial, name, n_samples=None):
     elif name == "xgb":
         return {
             "tree_method": "hist",  # Use 'hist' with 'device' for newer XGB versions
-            "device": "cuda",               # Use 'device': 'cuda' for XGBoost 2.0+
+            "device": "cuda" if USE_GPU else "cpu",
             "learning_rate": trial.suggest_float("learning_rate", 0.005, 0.1, log=True),
             "max_depth": trial.suggest_int("max_depth", 4, 10, log=True),
             "min_child_weight": trial.suggest_float("min_child_weight", 0.001, 5.0, log=True),

@@ -8,7 +8,7 @@ from imblearn.over_sampling import SMOTE, ADASYN
 from imblearn.under_sampling import RandomUnderSampler
 
 # Assuming these are your paths
-from src.models.ModelFactory import ModelFactory
+from src.models.ModelFactory import TABARENA_FIT_KWARGS, ModelFactory, tabarena_fit_kwargs
 from src.preprocessing import make_preprocessor
 
 def get_best_model_oofs(model_name, best_params, X, y, resampling=None, k=5, cat_features=None, num_features=None):
@@ -46,9 +46,8 @@ def get_best_model_oofs(model_name, best_params, X, y, resampling=None, k=5, cat
         # --- FIX 2: USE FULL PARAMS ---
         model = ModelFactory.get_model(model_name, params=full_params)
 
-        if model_name in ["mlp", "nca", "tabm", "icl", "tabpfn"]:
-            # Note: Ensure your ModelFactory correctly handles these arguments
-            model.fit(X=X_res, y=y_res, num_gpus=1, num_cpus=6)
+        if model_name in TABARENA_FIT_KWARGS:
+            model.fit(X=X_res, y=y_res, **tabarena_fit_kwargs())
         else:
             model.fit(X_res, y_res)
         

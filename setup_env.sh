@@ -17,19 +17,12 @@ cd /workspace
 mkdir -p /etc/OpenCL/vendors && echo "libnvidia-opencl.so.1" > /etc/OpenCL/vendors/nvidia.icd
 rm -rf tabarena
 
-# To store credentials
+# Credentials for private Hugging Face / GitHub access.
+# Never paste a token into this file: it is tracked by git. Export it instead:
+#   export HF_TOKEN=...   (and use `huggingface-cli login`)
+#   export GH_TOKEN=...   (or `gh auth login`)
 git config --global include.path /workspace/.gitconfig
 git config --file /workspace/.gitconfig credential.helper 'store --file /workspace/.git-credentials'
-
-
-
-# Paste your HF token manually when prompted
-# Example:
-# git config --global credential.helper store
-
-# ***REMOVED-LEAKED-TOKEN***
-# ***REMOVED-LEAKED-TOKEN***
-
 
 
 # LFS stuff

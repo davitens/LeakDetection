@@ -1,13 +1,32 @@
+# Core scientific stack
 numpy
 pandas
 scipy
 scikit-learn==1.5.2
-optuna
-optuna-dashboard
 imbalanced-learn
+
+# Boosting libraries
 xgboost
 lightgbm
 catboost
 
+# Tuning
+optuna
+optuna-dashboard
+
+# Encoding, metrics and analysis output
 category-encoders
+pyarrow
+matplotlib
+seaborn
+
+# Deep learning stack. torch is required by main_bulletproof.py (device
+# detection) and by the tabarena models.
+torch
+
+# Optuna trials for the tabular foundation models. tabarena itself is not on
+# PyPI: install the git checkout as described in setup_env.sh / README.md.
 tabpfn-extensions[hpo]
+
+# Tests
+pytest
